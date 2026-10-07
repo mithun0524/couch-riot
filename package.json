@@ -1,0 +1,24 @@
+{
+  "name": "couch-riot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:gpu": "vitest run --project gpu",
+    "typecheck": "tsc --noEmit",
+    "bench": "node bench/run.mjs"
+  },
+  "devDependencies": {
+    "@vitest/browser": "^3.2.7",
+    "@webgpu/types": "^0.1.74",
+    "playwright": "^1.63.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.4",
+    "vitest": "^3.2.7"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}
