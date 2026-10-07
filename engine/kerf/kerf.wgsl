@@ -40,7 +40,8 @@ fn worldBounds(q: Prim) -> vec4f {
     case KIND_CAPSULE: { lo = min(q.a, q.b) - vec2f(q.r); hi = max(q.a, q.b) + vec2f(q.r); }
     default: { lo = q.a - q.b; hi = q.a + q.b; } // box: b = half size
   }
-  return vec4f(lo - vec2f(q.glow), hi + vec2f(q.glow));
+  let g = max(q.glow, 0.0); // shade treats glow <= 0 as none; never shrink bounds below the fill
+  return vec4f(lo - vec2f(g), hi + vec2f(g));
 }
 
 // Inclusive tile rect (x0, y0, x1, y1); empty when x0 > x1 or y0 > y1.

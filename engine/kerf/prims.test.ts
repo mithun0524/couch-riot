@@ -42,4 +42,12 @@ describe('PrimList', () => {
     for (let i = 0; i < MAX_PRIMS; i++) p.circle(0, 0, 1, 0);
     expect(() => p.circle(0, 0, 1, 0)).toThrow(`Kerf: shape limit ${MAX_PRIMS} exceeded`);
   });
+
+  it('rejects non-finite values', () => {
+    const p = new PrimList();
+    expect(() => p.circle(NaN, 0, 1, 0)).toThrow('Kerf: shape values must be finite');
+    expect(() => p.capsule(0, 0, Infinity, 0, 1, 0)).toThrow('Kerf: shape values must be finite');
+    expect(() => p.box(0, 0, 1, 1, 0, 0, NaN)).toThrow('Kerf: shape values must be finite');
+    expect(p.count).toBe(0);
+  });
 });

@@ -18,9 +18,9 @@ function diffCount(a: Uint8Array, b: Uint8Array): number {
 }
 
 // Drives fast + brute renderers with the same frames; any byte difference fails.
-async function expectEquivalent(frames: Array<{ fill: (p: PrimList) => void; cam: Camera }>) {
-  const fast = new Renderer(device, W, H, false);
-  const ref = new Renderer(device, W, H, true);
+async function expectEquivalent(frames: Array<{ fill: (p: PrimList) => void; cam: Camera }>, width = W) {
+  const fast = new Renderer(device, width, H, false);
+  const ref = new Renderer(device, width, H, true);
   const p = new PrimList();
   try {
     for (let f = 0; f < frames.length; f++) {
@@ -78,4 +78,21 @@ it('camera change redraws everything', async () => {
     { fill, cam: { x: 37, y: -12, scale: sceneCam.scale } },
     { fill, cam: { x: 37, y: -12, scale: sceneCam.scale * 1.5 } },
   ]);
+});
+
+it('negative glow never clips the fill', async () => {
+  const cam = { x: 0, y: 0, scale: 1 };
+  await expectEquivalent([
+    { fill: (p) => { p.clear(); p.circle(100, 100, 20, rgba(255, 0, 0), -15); }, cam },
+    { fill: (p) => { p.clear(); p.circle(104, 100, 20, rgba(255, 0, 0), -15); }, cam },
+  ]);
+});
+
+it('1366-wide screen (partial tile column): fast == brute', async () => {
+  const cam = { x: 0, y: 0, scale: 1 };
+  const frames = Array.from({ length: 20 }, (_, f) => ({
+    fill: (p: PrimList) => { p.clear(); p.circle(1340 + f * 2, 340 + f, 12, rgba(0, 255, 255), 20); },
+    cam,
+  }));
+  await expectEquivalent(frames, 1366);
 });

@@ -31,6 +31,8 @@ export class PrimList {
 
   private push(kind: number, ax: number, ay: number, bx: number, by: number, r: number, color: number, glow: number): void {
     if (this.count >= MAX_PRIMS) throw new Error(`Kerf: shape limit ${MAX_PRIMS} exceeded`);
+    // Non-finite values make GPU tile bounds implementation-defined (differs across Metal/D3D/Vulkan).
+    if (!Number.isFinite(ax + ay + bx + by + r + glow)) throw new Error('Kerf: shape values must be finite');
     const o = this.count++ * 8;
     this.f[o] = ax;
     this.f[o + 1] = ay;

@@ -5,7 +5,7 @@ import { CALM, WORLD, WORST, buildScene, type SceneOpts } from './scene';
 import { percentile } from './stats';
 
 const BUDGET_MS = 16.6;
-const WARMUP = 10;
+const WARMUP = 120;
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w') ?? 1920);
 const H = Number(q.get('h') ?? 1080);
@@ -48,7 +48,7 @@ async function main() {
 
   const rows: Row[] = [];
   for (const [scene, opts] of [['worst', WORST], ['calm', CALM]] as const) {
-    rows.push({ scene, mode: 'kerf', ...(await run(device, ctx, false, opts, 300)) });
+    rows.push({ scene, mode: 'kerf', ...(await run(device, ctx, false, opts, 2000)) });
     rows.push({ scene, mode: 'brute', ...(await run(device, ctx, true, opts, 30)) });
   }
   const pass = rows.filter((r) => r.mode === 'kerf').every((r) => r.p99 <= BUDGET_MS);
