@@ -6,6 +6,7 @@ import { Renderer } from '../../engine/kerf/renderer';
 import { colorRgba, type GameInstance, type GameModule } from '../game';
 import { applyInput, newPad, type Pad } from '../pad';
 import type { HostOut, RoomToHost } from '../protocol';
+import { handleRoomMessage } from './inbound';
 import { overlayRenderer } from './overlay';
 import { Session } from './session';
 
@@ -47,22 +48,7 @@ async function main() {
       for (let i = 1; i < f.length; i++) applyInput(pad, f[i]);
       return;
     }
-    const m = JSON.parse(e.data) as RoomToHost;
-    switch (m.t) {
-      case 'join':
-        if (!m.back) pads[m.slot] = newPad();
-        return out(session.join(m.slot, m.name, m.back, now));
-      case 'leave':
-        pads[m.slot] = newPad(); // dropped player stands still
-        return out(session.leave(m.slot, now));
-      case 'gone':
-        pads[m.slot] = undefined;
-        return out(session.gone(m.slot, now));
-      case 'ready':
-        return out(session.ready(m.slot, m.v, now));
-      case 'vote':
-        return out(session.vote(m.slot, m.game, now));
-    }
+    out(handleRoomMessage(JSON.parse(e.data) as RoomToHost, session, pads, now));
   };
   ws.onclose = () => fatal('Lost the room server. Refresh to start a new room.');
 

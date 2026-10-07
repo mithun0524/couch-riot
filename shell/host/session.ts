@@ -38,7 +38,8 @@ export class Session {
 
   voteCounts(): Map<string, number> {
     const counts = new Map<string, number>();
-    for (const p of this.connected()) if (p.vote) counts.set(p.vote, (counts.get(p.vote) ?? 0) + 1);
+    const ok = new Set(this.eligible().map((g) => g.id)); // a vote can go stale when players leave
+    for (const p of this.connected()) if (p.vote && ok.has(p.vote)) counts.set(p.vote, (counts.get(p.vote) ?? 0) + 1);
     return counts;
   }
 
@@ -81,11 +82,14 @@ export class Session {
   }
 
   roundOver(scores: { slot: number; score: number }[], now: number): HostOut[] {
-    this.lastPlacings = [...scores].sort((a, b) => b.score - a.score).map((s, i) => ({ ...s, place: i + 1 }));
-    this.lastPlacings.forEach((pl, i) => {
+    // Ties share a place (1, 2, 2, 4) and that place's points.
+    this.lastPlacings = [...scores]
+      .sort((a, b) => b.score - a.score)
+      .map((s) => ({ ...s, place: 1 + scores.filter((o) => o.score > s.score).length }));
+    for (const pl of this.lastPlacings) {
       const p = this.players.get(pl.slot);
-      if (p && i < POINTS.length) p.points += POINTS[i];
-    });
+      if (p) p.points += POINTS[pl.place - 1] ?? 0;
+    }
     this.phase = 'results';
     this.resultsEndsAt = now + RESULTS_MS;
     this.currentGame = null;
@@ -112,8 +116,9 @@ export class Session {
         return this.lobbyCheck(now);
       case 'vote':
         if (n < 2) return this.toLobby();
-        if (!this.wheel && this.connected().every((p) => p.vote !== null)) return this.resolveVote(now);
-        return [];
+        if (this.wheel) return [];
+        if (this.connected().every((p) => p.vote !== null)) return this.resolveVote(now);
+        return this.connected().map((p) => this.voteScreen(p.slot, now)); // eligible games may have changed
       case 'results':
         return n < 2 ? this.toLobby() : [];
       case 'play':

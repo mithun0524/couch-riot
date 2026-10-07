@@ -50,6 +50,7 @@ function joinScreen(err = '') {
     const name = (document.getElementById('name') as HTMLInputElement).value.trim();
     if (!isRoomCode(code)) return joinScreen('Room codes are 4 letters');
     if (!name) return joinScreen('Pick a name');
+    if (ws) return; // double tap: one socket per phone
     room = code;
     store.set(localStorage, 'couch-name', name);
     connect(name);
@@ -64,7 +65,7 @@ function connect(name: string) {
   ws = sock;
   let ended = false;
   sock.onmessage = (e) => {
-    if (typeof e.data !== 'string') return;
+    if (ws !== sock || typeof e.data !== 'string') return;
     const m = JSON.parse(e.data) as RoomToPhone | HostToPhone;
     switch (m.t) {
       case 'welcome':

@@ -19,11 +19,13 @@ try {
     p.on('pageerror', (e) => errors.push(`${name}: ${e.message}`));
     await p.goto(`${BASE}/play.html?c=${code}`);
     await p.fill('#name', name);
-    await p.click('button[type=submit]');
+    await p.dblclick('button[type=submit]'); // impatient double tap must not create a ghost player
     await p.waitForSelector('body[data-screen=lobby]');
     phones.push(p);
   }
 
+  const joined = await tv.evaluate(() => window.__couch.session.players.size);
+  if (joined !== 3) await fail(`expected 3 players after double-tap joins, got ${joined}`);
   for (const p of phones) await p.click('#ready');
   await tv.waitForFunction(() => window.__couch.session.phase === 'vote');
 

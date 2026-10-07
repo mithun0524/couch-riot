@@ -196,3 +196,34 @@ describe('play and results', () => {
     expect(s.players.has(1)).toBe(false);
   });
 });
+
+describe('review fixes', () => {
+  const A: GameInfo = { id: 'a', name: 'A', minPlayers: 2 };
+  const B: GameInfo = { id: 'b', name: 'B', minPlayers: 3 };
+
+  it('votes for a game that stops being eligible are not counted', () => {
+    const s = lobbyWith(3, [A, B]);
+    toVote(s, 0);
+    s.vote(0, 'b', 1);
+    s.vote(1, 'b', 2);
+    const outs = s.leave(1, 3);
+    expect(outs.find((o) => o.to === 0)).toMatchObject({ screen: 'vote', data: { games: [{ id: 'a' }] } });
+    s.tick(VOTE_MS);
+    expect(s.phase).toBe('play');
+    expect(s.currentGame).toBe('a');
+  });
+
+  it('tied scores share a place and its points', () => {
+    const s = toPlay(4);
+    s.roundOver([{ slot: 0, score: 10 }, { slot: 1, score: 5 }, { slot: 2, score: 5 }, { slot: 3, score: 1 }], 100);
+    expect(s.lastPlacings.map((p) => [p.slot, p.place])).toEqual([[0, 1], [1, 2], [2, 2], [3, 4]]);
+    expect([0, 1, 2, 3].map((i) => s.players.get(i)!.points)).toEqual([3, 2, 2, 0]);
+  });
+
+  it('everyone tied on zero all get first', () => {
+    const s = toPlay(2);
+    s.roundOver([{ slot: 0, score: 0 }, { slot: 1, score: 0 }], 100);
+    expect(s.lastPlacings.map((p) => p.place)).toEqual([1, 1]);
+    expect([0, 1].map((i) => s.players.get(i)!.points)).toEqual([3, 3]);
+  });
+});
