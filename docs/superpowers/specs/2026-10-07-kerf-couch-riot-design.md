@@ -1,4 +1,4 @@
-# Party Arena + Facet Engine — Design (v1)
+# Couch Riot + Kerf Engine — Design (v1)
 
 Date: 2026-10-07
 Status: draft, awaiting review
@@ -22,9 +22,9 @@ matchmaking with strangers, spectators, audio beyond basic SFX.
 
 ## 2. Scope of v1
 
-1. **Facet** — custom WebGPU engine (§4).
+1. **Kerf** — custom WebGPU engine (§4).
 2. **Arena shell** — room server, host page, phone controller (§3).
-3. **Twin-stick Arena** — first game, built on Facet (§5).
+3. **Twin-stick Arena** — first game, built on Kerf (§5).
 
 Game roadmap (one at a time, each its own spec): Floor is Lava, Zombie Last
 Stand, Kaiju Rampage, Hungry Hole, Meteor Dodge Dinos, Bee Swarm War,
@@ -58,7 +58,7 @@ Phone (/play/CODE) ──WS──► Room (Durable Object, relay only) ──WS�
   `{ meta, controls, init(world, players), onInput(id, input), tick(), isOver(), result() }`
   Each game lazy-loads from its own folder.
 
-## 4. Facet engine
+## 4. Kerf engine
 
 ### 4.1 Representation — everything is an analytic shape
 - Scene = signed-distance primitives (sphere, capsule, rounded box,
@@ -135,7 +135,7 @@ Phone (/play/CODE) ──WS──► Room (Durable Object, relay only) ──WS�
   Objects (`wrangler`). No runtime framework, no Three.js.
 - One repo:
   ```
-  engine/      Facet (shapes, tiles, sim kernels, reference path)
+  engine/      Kerf (shapes, tiles, sim kernels, reference path)
   shell/       host + controller pages, protocol
   server/      Worker + Room Durable Object
   games/twinstick/
@@ -144,7 +144,7 @@ Phone (/play/CODE) ──WS──► Room (Durable Object, relay only) ──WS�
 
 ## 8. Risks
 
-- Facet is unproven; bench is the gate. If tile-incremental shading can't
+- Kerf is unproven; bench is the gate. If tile-incremental shading can't
   hold budget on the reference machine, revisit §4.2 before game work.
 - Influence bounds for soft shadows/glow must be conservative or the
   equivalence test fails — expected to be the hardest correctness area.
