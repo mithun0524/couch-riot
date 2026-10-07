@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["@webgpu/types", "vite/client"]
   },
-  "include": ["engine", "bench"]
+  "include": ["engine", "bench", "shell", "games"]
 }
