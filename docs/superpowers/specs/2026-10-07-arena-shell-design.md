@@ -71,7 +71,7 @@ Phone page  ──WS──►  Room (Durable Object)  ──WS──►  Host pa
   - Name: trimmed, 1–12 chars (longer is truncated); duplicate gets a
     suffix (`Sam`, `Sam 2`).
 - **Slot hold**: phone socket closes → host gets `leave`; slot held 60 s
-  (Durable Object alarm). Reconnect within 60 s with token → `join` with
+  (timer in the Durable Object; the host socket keeps it alive). Reconnect within 60 s with token → `join` with
   `back: true`. After 60 s → host gets `gone`, slot freed.
 - **Routing**: phone binary frames → host, prefixed with the sender's slot
   byte. Phone JSON (`ready`, `vote`) → host with `slot` added. Host JSON
@@ -105,7 +105,8 @@ Relayed to host as `[slot, byte, byte, …]`.
 
 `screen` ∈ `lobby | vote | controller | results | wait`. `data` per screen:
 - `lobby`: `{ready: boolean, players: {name, color, ready}[]}`
-- `vote`: `{games: {id, name, again: boolean}[], endsAt: number, mine: string|null}`
+- `vote`: `{games: {id, name, again: boolean}[], msLeft: number, mine: string|null}`
+  (time remaining, not a timestamp — phone and TV clocks differ)
 - `controller`: `{layout: "twinstick"}`
 - `results`: `{place, score}`
 - `wait`: `{reason: "next-round"}`
@@ -206,9 +207,11 @@ draws once per frame through one Kerf `Renderer`.
 
 - **protocol**: round-trip every JSON message; stick byte for all 16 dirs ×
   4 mags × 2 sticks; button byte for ids 0–63 down/up; junk bytes rejected.
-- **room** (Cloudflare Workers test pool): host attach; join assigns slots;
+- **room**: membership logic lives in a pure `RoomCore` class tested in
+  node (the Workers test pool needs Vitest 4; we're on 3). The thin Durable
+  Object adapter is covered by a live smoke test and the end-to-end test: host attach; join assigns slots;
   9th phone `room-full`; unknown code `no-room`; duplicate names suffixed;
-  reconnect with token within 60 s keeps slot (`back: true`); after alarm
+  reconnect with token within 60 s keeps slot (`back: true`); after the hold
   slot freed + `gone`; host close → phones get `host-gone`; junk dropped.
 - **session** (node unit): all-ready → vote; majority → 15 s countdown and
   cancel; vote resolves majority; tie picks among tied only; no votes →
@@ -221,7 +224,7 @@ draws once per frame through one Kerf `Renderer`.
 
 ## 10. Stack & layout additions
 
-- `wrangler`, `@cloudflare/vitest-pool-workers` (Room tests), `qrcode`
+- `wrangler`, `@cloudflare/workers-types`, `qrcode`
   (QR rendering — encoding is not worth hand-rolling).
 - ```
   server/   worker.ts, room.ts, wrangler.toml
