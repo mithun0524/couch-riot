@@ -3,22 +3,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "wrangler dev -c server/wrangler.toml --ip 0.0.0.0 --port 8787 & vite",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:gpu": "vitest run --project gpu",
-    "typecheck": "tsc --noEmit",
-    "bench": "node bench/run.mjs"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server",
+    "bench": "node bench/run.mjs",
+    "smoke:server": "node server/smoke.mjs"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261007.1",
     "@vitest/browser": "^3.2.7",
     "@webgpu/types": "^0.1.74",
     "playwright": "^1.63.0",
     "typescript": "^5.9.3",
     "vite": "^6.4.4",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "wrangler": "^4.148.0"
   },
   "allowScripts": {
-    "esbuild@0.25.12": true
+    "esbuild@0.25.12": true,
+    "workerd@1.20261006.1": true,
+    "esbuild@0.28.1": true
   }
 }
