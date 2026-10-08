@@ -1,6 +1,6 @@
 import { rgba, type PrimList } from '../engine/kerf/prims';
 import type { Pad } from './pad';
-import { PALETTE_HEX } from './protocol';
+import { PALETTE_HEX, type HostToPhone } from './protocol';
 
 export type { Pad };
 
@@ -15,6 +15,7 @@ export interface GameInstance {
   draw(prims: PrimList): void; // Kerf shapes, world 1600×900
   isOver(): boolean;
   result(): { slot: number; score: number }[];
+  messages?(): { to: number; msg: HostToPhone }[]; // drained after each tick (buzz, HUD)
 }
 
 export function colorRgba(slot: number): number {

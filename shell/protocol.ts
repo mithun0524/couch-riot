@@ -40,7 +40,7 @@ export type ScreenMsg =
   | { t: 'screen'; screen: 'controller'; data: { layout: 'twinstick' } }
   | { t: 'screen'; screen: 'results'; data: { place: number; score: number } }
   | { t: 'screen'; screen: 'wait'; data: { reason: 'next-round' } };
-export type HostToPhone = ScreenMsg | { t: 'buzz'; ms: number };
+export type HostToPhone = ScreenMsg | { t: 'buzz'; ms: number } | { t: 'hud'; hp: number; max: number };
 export type HostOut = { to: number | 'all' } & HostToPhone;
 
 export type RoomToPhone =
@@ -80,6 +80,6 @@ export function parseHostOut(s: string): { to: number | 'all'; msg: HostToPhone 
   if (!isObj(v)) return null;
   const { to, ...msg } = v;
   const okTo = to === 'all' || (Number.isInteger(to) && (to as number) >= 0 && (to as number) < MAX_PLAYERS);
-  if (!okTo || (msg.t !== 'screen' && msg.t !== 'buzz')) return null;
+  if (!okTo || (msg.t !== 'screen' && msg.t !== 'buzz' && msg.t !== 'hud')) return null;
   return { to: to as number | 'all', msg: msg as HostToPhone };
 }

@@ -62,6 +62,10 @@ describe('parseHostOut', () => {
       .toEqual({ to: 'all', msg: { t: 'screen', screen: 'wait', data: { reason: 'next-round' } } });
   });
 
+  it('routes HUD updates', () => {
+    expect(parseHostOut('{"to":2,"t":"hud","hp":1,"max":3}')).toEqual({ to: 2, msg: { t: 'hud', hp: 1, max: 3 } });
+  });
+
   it('rejects bad targets and unknown types', () => {
     for (const s of ['{"to":8,"t":"buzz","ms":1}', '{"to":-1,"t":"buzz","ms":1}', '{"to":1.5,"t":"buzz","ms":1}',
       '{"t":"buzz","ms":1}', '{"to":0,"t":"welcome"}', 'x'])

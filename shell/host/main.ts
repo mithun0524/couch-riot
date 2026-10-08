@@ -82,6 +82,7 @@ async function main() {
     last = t;
     while (game && acc >= TICK_MS) {
       game.tick(pads);
+      for (const m of game.messages?.() ?? []) out([{ to: m.to, ...m.msg }]);
       acc -= TICK_MS;
       if (game.isOver()) {
         out(session.roundOver(game.result(), now));

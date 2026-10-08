@@ -10,6 +10,12 @@ let room = (new URLSearchParams(location.search).get('c') ?? '').toUpperCase();
 let ws: WebSocket | null = null;
 let giveUpAt = 0;
 let detach: (() => void) | null = null;
+let hud: { hp: number; max: number } | null = null; // kept so a HUD sent before the controller opens still shows
+
+function drawHud() {
+  const el = document.getElementById('hud');
+  if (el && hud) el.innerHTML = Array.from({ length: hud.max }, (_, i) => `<i class="${i < hud!.hp ? 'on' : ''}"></i>`).join('');
+}
 
 const tokenKey = () => `couch-token-${room}`;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -86,6 +92,10 @@ function connect(name: string) {
       case 'buzz':
         navigator.vibrate?.(m.ms);
         break;
+      case 'hud':
+        hud = { hp: m.hp, max: m.max };
+        drawHud();
+        break;
       case 'screen':
         render(m);
         break;
@@ -126,7 +136,9 @@ function render(m: ScreenMsg) {
     case 'controller': {
       show('controller', `
         <p class="tip">Turn your phone sideways</p>
+        <div class="hud" id="hud"></div>
         <div class="pad"><div class="half" id="L" data-label="MOVE"></div><div class="half" id="R" data-label="AIM"></div></div>`);
+      drawHud();
       detach = attachTwinStick(document.getElementById('L')!, document.getElementById('R')!, (b) => send(new Uint8Array([b])));
       document.documentElement.requestFullscreen?.().catch(() => { /* needs a gesture; best effort */ });
       break;
