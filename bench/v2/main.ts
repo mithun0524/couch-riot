@@ -46,7 +46,7 @@ async function main() {
   const rows: { scene: string; mode: string; p50: number; p99: number }[] = [];
   for (const [scene, opts] of [['busy', BUSY], ['calm', CALM]] as const) {
     rows.push({ scene, mode: 'kerf2', ...(await run(device, ctx, false, opts, 600)) });
-    rows.push({ scene, mode: 'brute', ...(await run(device, ctx, true, opts, 20)) });
+    if (q.get('brute') !== '0') rows.push({ scene, mode: 'brute', ...(await run(device, ctx, true, opts, 20)) }); // ?brute=0 keeps the run light
   }
   const pass = rows.filter((r) => r.mode === 'kerf2').every((r) => r.p99 <= BUDGET_MS);
   out.textContent = `${W}x${H}\n` + rows.map((r) => `${r.scene.padEnd(5)} ${r.mode.padEnd(6)} p50 ${r.p50.toFixed(2)}ms  p99 ${r.p99.toFixed(2)}ms`).join('\n') + `\n${pass ? 'PASS' : 'FAIL'} (p99 ≤ ${BUDGET_MS}ms)`;

@@ -191,10 +191,41 @@ var<workgroup> tileDirty: u32;
 
 struct Near { d: f32, id: u32 }
 
-fn nearest(p: vec3f, n: u32) -> Near {
-  var best = Near(1e30, 0xffffffffu);
+// Per-ray candidates (spec §5 applied per ray): from the tile list, keep only shapes whose bounding sphere
+// grown by REACH_GROW (+1 rounding slack) comes near this ray's segment. Any shape left out is > REACH_GROW
+// away from every point the march, normals, AO or shadow visit, so min(d, STEP_CAP) is unchanged: exact.
+// More than RAY_LIST candidates → fall back to the whole tile list (still exact, just slower).
+const RAY_LIST: u32 = 32u;
+const CULL_R: f32 = REACH_GROW + 1.0;
+
+struct Cand { ids: array<u32, RAY_LIST>, n: u32, useTile: bool }
+
+fn segNear(o: vec3f, d: vec3f, t0: f32, t1: f32, c: vec3f, r: f32) -> bool {
+  let q = o + d * clamp(dot(c - o, d), t0, t1) - c;
+  return dot(q, q) <= r * r;
+}
+
+fn gather(c: ptr<function, Cand>, n: u32, o: vec3f, d: vec3f, t0: f32, t1: f32) {
+  (*c).n = 0u;
+  (*c).useTile = U.p.brute != 0u; // the reference checks every shape, so a culling mistake shows as a diff
+  if ((*c).useTile) { return; }
   for (var k = 0u; k < n; k++) {
     let i = list[k];
+    let b = bound(shapes[i]);
+    if (b.w < 0.0 || segNear(o, d, t0, t1, b.xyz, b.w + CULL_R)) {
+      if ((*c).n == RAY_LIST) { (*c).useTile = true; return; }
+      (*c).ids[(*c).n] = i;
+      (*c).n += 1u;
+    }
+  }
+}
+
+fn nearest(p: vec3f, c: ptr<function, Cand>, n: u32) -> Near {
+  var best = Near(1e30, 0xffffffffu);
+  let cnt = select((*c).n, n, (*c).useTile);
+  for (var k = 0u; k < cnt; k++) {
+    var i: u32;
+    if ((*c).useTile) { i = list[k]; } else { i = (*c).ids[k]; }
     let d = sdShape(p, shapes[i]);
     if (d < best.d) { best = Near(d, i); }
   }
@@ -203,10 +234,10 @@ fn nearest(p: vec3f, n: u32) -> Near {
 
 struct Trace { t: f32, id: u32, hit: bool }
 
-fn march(r: Ray, n: u32) -> Trace {
+fn march(r: Ray, c: ptr<function, Cand>, n: u32) -> Trace {
   var t = 0.0;
   for (var s = 0u; s < MAX_STEPS; s++) {
-    let h = nearest(r.o + r.d * t, n);
+    let h = nearest(r.o + r.d * t, c, n);
     if (h.d < 0.0005 * t + 0.02) { return Trace(t, h.id, true); }
     t += min(h.d, STEP_CAP);
     if (t > MAX_DIST) { break; }
@@ -214,18 +245,18 @@ fn march(r: Ray, n: u32) -> Trace {
   return Trace(t, 0u, false);
 }
 
-fn normalAt(p: vec3f, n: u32) -> vec3f {
+fn normalAt(p: vec3f, c: ptr<function, Cand>, n: u32) -> vec3f {
   let e = vec2f(1.0, -1.0) * 0.02;
-  return normalize(e.xyy * nearest(p + e.xyy, n).d + e.yyx * nearest(p + e.yyx, n).d
-                 + e.yxy * nearest(p + e.yxy, n).d + e.xxx * nearest(p + e.xxx, n).d);
+  return normalize(e.xyy * nearest(p + e.xyy, c, n).d + e.yyx * nearest(p + e.yyx, c, n).d
+                 + e.yxy * nearest(p + e.yxy, c, n).d + e.xxx * nearest(p + e.xxx, c, n).d);
 }
 
-fn softShadow(p: vec3f, L: vec3f, n: u32) -> f32 {
+fn softShadow(p: vec3f, L: vec3f, c: ptr<function, Cand>, n: u32) -> f32 {
   let k = 1.0 / max(U.env.sunAngle, 1e-3);
   var res = 1.0;
   var t = 0.5;
   for (var s = 0u; s < SHADOW_STEPS; s++) {
-    let d = min(nearest(p + L * t, n).d, STEP_CAP);
+    let d = min(nearest(p + L * t, c, n).d, STEP_CAP);
     res = min(res, k * d / t);
     if (res < 0.001 || t > SHADOW_MAX) { break; }
     t += clamp(d, 0.5, STEP_CAP);
@@ -233,12 +264,12 @@ fn softShadow(p: vec3f, L: vec3f, n: u32) -> f32 {
   return clamp(res, 0.0, 1.0);
 }
 
-fn ambientOcclusion(p: vec3f, nrm: vec3f, n: u32) -> f32 {
+fn ambientOcclusion(p: vec3f, nrm: vec3f, c: ptr<function, Cand>, n: u32) -> f32 {
   var occ = 0.0;
   var w = 1.0;
   for (var i = 1u; i <= 4u; i++) {
     let h = AO_MAX * f32(i) / 4.0;
-    let d = min(nearest(p + nrm * h, n).d, STEP_CAP);
+    let d = min(nearest(p + nrm * h, c, n).d, STEP_CAP);
     occ += max(h - d, 0.0) * w;
     w *= 0.6;
   }
@@ -251,17 +282,23 @@ fn sky(d: vec3f) -> vec3f {
 
 fn shadePixel(pix: vec2u, n: u32) -> vec3f {
   let r = pixelRay(pix);
-  let tr = march(r, n);
+  var c: Cand;
+  gather(&c, n, r.o, r.d, 0.0, MAX_DIST + STEP_CAP);
+  let tr = march(r, &c, n);
   if (!tr.hit) { return sky(r.d); }
   let p = r.o + r.d * tr.t;
   let s = shapes[tr.id];
-  let nrm = normalAt(p, n);
+  let nrm = normalAt(p, &c, n);
+  let ao = ambientOcclusion(p, nrm, &c, n);
   let base = pow(unpack4x8unorm(s.color).rgb, vec3f(2.2));
   let L = U.env.sunDir;
   let ndl = max(dot(nrm, L), 0.0);
   var sh = 0.0;
-  if (ndl > 0.0) { sh = softShadow(p + nrm * SURF_EPS, L, n); }
-  let ao = ambientOcclusion(p, nrm, n);
+  if (ndl > 0.0) {
+    let so = p + nrm * SURF_EPS;
+    gather(&c, n, so, L, 0.0, SHADOW_MAX + STEP_CAP); // the shadow ray gets its own candidates
+    sh = softShadow(so, L, &c, n);
+  }
   let lit = U.env.sunColor * U.env.sunIntensity * ndl * sh + U.env.skyColor * U.env.skyIntensity * ao;
   return base * lit + base * s.emission;
 }
