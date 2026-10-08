@@ -41,7 +41,7 @@ All evaluated in the shape's local frame (inverse rotation applied to `p − pos
 | Kind | Params | Distance function |
 |---|---|---|
 | sphere | radius | exact |
-| ellipsoid | half-axes | `(|p/r| − 1)·min(r)` — a lower bound (1-Lipschitz), same zero set as the true surface; normal = `normalize(p / r²)` exact |
+| ellipsoid | half-axes | `max((|p/r| − 1)·min(r), |p| − max(r))` — a lower bound (1-Lipschitz), same zero set as the true surface; normal = `normalize(p / r²)` exact. The second term keeps it ≥ the distance to its bounding sphere, which §5 relies on |
 | capsule | endpoint offset, radius | exact |
 | roundbox | half-extents, corner radius | exact |
 | cylinder | radius, half-height, edge round | exact |
@@ -116,7 +116,8 @@ Problem: sphere tracing's step depends on the nearest surface in the **whole** s
 shapes would take different steps than the brute-force reference, so pixels would differ.
 
 Rule: every march (primary, through-jelly, shadow, AO) steps by `min(d, D)` with the same constant `D` in
-both modes. A tile's shape list contains every shape whose bounds, grown by `D`, could come within reach of
+both modes. Every shape's distance function is ≥ the distance to its bounding sphere (true for exact SDFs; enforced for the
+ellipsoid). A tile's shape list contains every shape whose bounds, grown by `D` (and by the AO reach), could come within reach of
 any ray the tile casts. Any excluded shape therefore always has `d ≥ D`, so `min(d_all, D) = min(d_list, D)`
 at every step: identical steps, identical pixels.
 
