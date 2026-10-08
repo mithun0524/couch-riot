@@ -16,11 +16,13 @@ export const SHIELD_TICKS = 90;
 export const PICKUP_EVERY = 600;
 export const MAX_PICKUPS = 2;
 export const POWER_TICKS = 480;
-export const MAX_BULLETS = 1500; // keeps draw() under Kerf v1's 2048-shape limit
+// Worst-case draw: 2 shapes per bullet (chicken + beak) + ~135 others (walls, pickups, ships, death bursts) ≤ 2048.
+export const MAX_BULLETS = 900;
 const HIT_FLASH = 8;
 const PICKUP_R = 12;
 const BOOMERANG_TURN = 30;
 const CHICKEN_BOUNCES = 3;
+const CHICKEN_ARM_GAP = 24; // a rebound only counts once the chicken has had real room to come back at you
 
 export type Weapon = 'blaster' | 'shotgun' | 'chicken' | 'boomerang';
 type Power = Exclude<Weapon, 'blaster'>;
@@ -43,7 +45,8 @@ export interface Ship {
   alive: boolean; hp: number; respawnAt: number; shieldUntil: number; cooldown: number;
   weapon: Weapon; weaponUntil: number; score: number; flashUntil: number; diedAt: number;
 }
-export interface Bullet { owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; age: number; kind: Weapon; bounces: number; hit: number[] }
+// `armed`: a chicken can only hit its owner once it has bounced and been clear of them since.
+export interface Bullet { owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; age: number; kind: Weapon; bounces: number; hit: number[]; armed: boolean }
 export interface Pickup { x: number; y: number; kind: Power }
 
 export class TwinStickGame implements GameInstance {
@@ -91,7 +94,7 @@ export class TwinStickGame implements GameInstance {
   draw(p: PrimList): void {
     const victory = this.t > ROUND_TICKS;
     const lead = this.leader();
-    for (const w of WALLS) p.box(w.x, w.y, w.hw, w.hh, 6, victory ? lead.color : WALL, victory ? 24 : 10);
+    for (const w of WALLS) p.box(w.x, w.y, w.hw, w.hh, 6, victory && lead ? lead.color : WALL, victory ? 24 : 10);
     for (const k of this.pickups) {
       p.circle(k.x, k.y, PICKUP_R * (1 + 0.15 * Math.sin(this.t * 0.15)), POWER_COLOR[k.kind], 34);
       p.circle(k.x, k.y, 4, WHITE);
@@ -156,10 +159,10 @@ export class TwinStickGame implements GameInstance {
     const base = Math.atan2(s.ay, s.ax);
     for (const da of spread) {
       const dx = Math.cos(base + da), dy = Math.sin(base + da);
-      this.bullets.push({
-        owner: s.slot, x: s.x + dx * (PLAYER_R + 6), y: s.y + dy * (PLAYER_R + 6), vx: dx * g.speed, vy: dy * g.speed,
-        r: g.r, life: g.life, age: 0, kind: s.weapon, bounces: 0, hit: [],
-      });
+      const x = s.x + dx * (PLAYER_R + 6), y = s.y + dy * (PLAYER_R + 6);
+      // A shot that would start inside a wall is blocked (the boomerang laser passes through walls).
+      if (s.weapon !== 'boomerang' && WALLS.some((w) => overlaps(x, y, g.r, w))) continue;
+      this.bullets.push({ owner: s.slot, x, y, vx: dx * g.speed, vy: dy * g.speed, r: g.r, life: g.life, age: 0, kind: s.weapon, bounces: 0, hit: [], armed: false });
     }
     if (this.bullets.length > MAX_BULLETS) this.bullets.splice(0, this.bullets.length - MAX_BULLETS);
   }
@@ -200,7 +203,11 @@ export class TwinStickGame implements GameInstance {
       b.x += b.vx;
       b.y += b.vy;
       if (b.life <= 0) continue;
-      if (b.kind !== 'boomerang' && this.hitWall(b)) continue; // the laser passes through walls
+      if (b.kind !== 'boomerang' && this.hitWall(b)) continue; // the boomerang laser passes through walls
+      if (b.kind === 'chicken' && b.bounces > 0 && !b.armed) {
+        const o = this.ships.find((s) => s.slot === b.owner);
+        if (!o?.alive || Math.hypot(o.x - b.x, o.y - b.y) >= b.r + PLAYER_R + CHICKEN_ARM_GAP) b.armed = true;
+      }
       if (this.hitShips(b)) continue;
       keep.push(b);
     }
@@ -228,7 +235,7 @@ export class TwinStickGame implements GameInstance {
   private hitShips(b: Bullet): boolean {
     for (const s of this.ships) {
       if (!s.alive || b.hit.includes(s.slot)) continue;
-      if (s.slot === b.owner && !(b.kind === 'chicken' && b.bounces > 0)) continue;
+      if (s.slot === b.owner && !b.armed) continue;
       if (Math.hypot(s.x - b.x, s.y - b.y) >= b.r + PLAYER_R) continue;
       if (this.t >= s.shieldUntil) this.damage(s, b.owner);
       if (b.kind === 'boomerang') {
@@ -273,8 +280,8 @@ export class TwinStickGame implements GameInstance {
     this.hud(s);
   }
 
-  private leader(): Ship {
-    return this.ships.reduce((a, b) => (b.score > a.score ? b : a));
+  private leader(): Ship | undefined {
+    return this.ships.reduce<Ship | undefined>((a, b) => (!a || b.score > a.score ? b : a), undefined);
   }
 
   private colorOf(slot: number): number {

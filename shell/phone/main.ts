@@ -111,6 +111,7 @@ function connect(name: string) {
 }
 
 function render(m: ScreenMsg) {
+  if (m.screen !== 'controller') hud = null; // pips belong to one round; the next game sends its own
   switch (m.screen) {
     case 'lobby': {
       const { ready, players } = m.data;

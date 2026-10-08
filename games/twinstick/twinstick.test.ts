@@ -204,3 +204,40 @@ describe('round', () => {
     expect(twinstick.controls).toBe('twinstick');
   });
 });
+
+describe('review fixes', () => {
+  it('a chicken fired into an adjacent wall never spawns, so it cannot hurt its owner or leave the map', () => {
+    const g = game();
+    place(g, 0, 42, 160);
+    Object.assign(g.ships[0], { weapon: 'chicken', weaponUntil: 10_000 });
+    for (let i = 0; i < 20; i++) g.tick([pad(undefined, [LEFT, 3])]);
+    expect(g.ships[0].hp).toBe(MAX_HP);
+    expect(g.bullets.every((b) => b.x > 0)).toBe(true);
+  });
+
+  it('a chicken that bounces off a nearby wall and passes back through its owner does not hit them', () => {
+    const g = game();
+    place(g, 0, 70, 160);
+    Object.assign(g.ships[0], { weapon: 'chicken', weaponUntil: 10_000 });
+    g.tick([pad(undefined, [LEFT, 3])]);
+    for (let i = 0; i < 40; i++) g.tick([]);
+    expect(g.ships[0].hp).toBe(MAX_HP);
+  });
+
+  it('8 players spamming chickens stay under the shape limit', () => {
+    const players = Array.from({ length: 8 }, (_, i) => ({ slot: i, color: i + 1 }));
+    const g = new TwinStickGame(players, 5);
+    for (const s of g.ships) Object.assign(s, { weapon: 'chicken', weaponUntil: 1e9 });
+    const pads = g.ships.map((_, i) => pad([(i * 2) % 16, 1], [(i * 2 + 8) % 16, 3]));
+    const p = new PrimList();
+    for (let i = 0; i < 900; i++) { g.tick(pads); p.clear(); g.draw(p); }
+    expect(p.count).toBeLessThan(MAX_PRIMS);
+  });
+
+  it('a game with no players draws without throwing', () => {
+    const g = new TwinStickGame([], 1);
+    g.tick([]);
+    expect(() => g.draw(new PrimList())).not.toThrow();
+  });
+});
+
