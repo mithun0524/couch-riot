@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p server",
     "bench": "node bench/run.mjs",
     "smoke:server": "node server/smoke.mjs",
-    "e2e": "node e2e/arena.mjs"
+    "e2e": "node e2e/arena.mjs",
+    "bench:v2": "node bench/v2/run.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",
