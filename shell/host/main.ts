@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { dots } from '../../games/dots/dots';
+import { twinstick } from '../../games/twinstick/twinstick';
 import { getDevice } from '../../engine/kerf/gpu';
 import { PrimList } from '../../engine/kerf/prims';
 import { Renderer } from '../../engine/kerf/renderer';
@@ -10,7 +11,7 @@ import { handleRoomMessage } from './inbound';
 import { overlayRenderer } from './overlay';
 import { Session } from './session';
 
-const GAMES: GameModule[] = [dots];
+const GAMES: GameModule[] = [twinstick, dots];
 const WORLD = { w: 1600, h: 900 };
 const TICK_MS = 1000 / 60;
 const ROOM = `${location.hostname}:8787`;
